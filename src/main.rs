@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, os::unix::prelude::CommandExt};
 
 use anyhow::{Context, Result};
 use clap::{crate_authors, crate_name, crate_version, App, AppSettings, Arg, SubCommand};
@@ -38,11 +38,11 @@ fn main() -> Result<()> {
             match registry.get(alias) {
                 Some(command) => {
                     println!("{}: {}", alias, command);
-                    std::process::Command::new("sh")
+                    let error = std::process::Command::new("sh")
                         .arg("-c")
                         .arg(command)
-                        .spawn()
-                        .unwrap();
+                        .exec();
+                    println!("Error running command {:?}", error)
                 }
                 None => println!("Alias not found: {}", alias),
             }
