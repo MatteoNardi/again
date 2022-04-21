@@ -31,6 +31,16 @@ You may want to alias it to a shorter name:
 # source ~/.bashrc
 ```
 
+You can enable autocompletions with:
+```
+# cargo run -- completions bash > ~/.config/bash_completion
+```
+
+If you aliased it to something else, use:
+```
+# cargo run -- completions bash --exe ag > ~/.config/bash_completion
+```
+
 ## Usage
 
 ```

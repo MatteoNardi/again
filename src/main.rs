@@ -6,7 +6,7 @@ type Alias = String;
 type Command = String;
 type Registry = HashMap<Alias, Command>;
 
-use clap::{Parser, Subcommand};
+use clap::{IntoApp, Parser, Subcommand};
 
 #[derive(Parser)]
 #[clap(author, version, about)]
@@ -36,6 +36,14 @@ enum Action {
     // - Save the result and remove the temp file
     // /// Edit a command in your editor
     // Edit { alias: Alias },
+    /// Generate again shell completions for your shell to stdout
+    Completions {
+        /// How you want to invoke again
+        #[clap(long, default_value = "again")]
+        exe: String,
+        #[clap(arg_enum)]
+        shell: clap_complete::Shell,
+    },
 }
 
 fn main() -> Result<()> {
@@ -74,6 +82,12 @@ fn main() -> Result<()> {
                 println!("{}: {}", alias, command);
             }
         }
+        Action::Completions { exe, shell } => clap_complete::generate(
+            shell,
+            &mut Args::command(),
+            exe,
+            &mut std::io::stdout().lock(),
+        ),
     }
     Ok(())
 }
