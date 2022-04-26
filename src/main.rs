@@ -4,9 +4,9 @@ use anyhow::{Context, Result};
 
 type Alias = String;
 type Command = String;
-type Registry = HashMap<Alias, Command>;
 
 use clap::{IntoApp, Parser, Subcommand};
+use colored::Colorize;
 
 #[derive(Parser)]
 #[clap(author, version, about)]
@@ -30,12 +30,8 @@ enum Action {
     /// List aliases
     #[clap(alias("ls"))]
     List,
-    // TODO: support alias editing:
-    // - Create a temp file and dump the alias content to it
-    // - Allow the user to modify it with $EDITOR
-    // - Save the result and remove the temp file
-    // /// Edit a command in your editor
-    // Edit { alias: Alias },
+    /// Edit a command in your editor
+    Edit { alias: Alias },
     /// Generate again shell completions for your shell to stdout
     Completions {
         /// How you want to invoke again
@@ -48,20 +44,78 @@ enum Action {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let mut registry: Registry =
-        confy::load("ag_registry").context("Error loading alias registry")?;
+    let registry = Registry::load()?;
     match args.action {
-        Action::Save { alias, command } => {
-            let command = command.join(" ");
-            let old = registry.insert(alias.to_string(), command);
-            if let Some(alias) = old {
-                println!("Replacing old command: {:?}", alias);
-            }
-            confy::store("ag_registry", registry)?;
+        Action::Save { alias, command } => registry.set(alias, Some(command.join(" "))),
+        Action::Edit { alias } => registry.edit(alias),
+        Action::Delete { alias } => registry.set(alias, None),
+        Action::List => registry.list(),
+        Action::Run { alias } => registry.run(alias),
+        Action::Completions { exe, shell } => {
+            clap_complete::generate(
+                shell,
+                &mut Args::command(),
+                exe,
+                &mut std::io::stdout().lock(),
+            );
+            Ok(())
         }
-        Action::Run { alias } => match registry.get(&alias) {
+    }
+}
+
+struct Registry {
+    items: HashMap<Alias, Command>,
+}
+
+const STORAGE: &'static str = "ag_registry";
+
+impl Registry {
+    fn load() -> Result<Self> {
+        let items = confy::load(STORAGE).context("Error loading alias registry")?;
+        Ok(Registry { items })
+    }
+
+    fn set(mut self, alias: Alias, command: Option<Command>) -> Result<()> {
+        println!("{}:", alias.bright_white());
+        // Delete old value
+        if let Some(old_value) = self.items.get(&alias) {
+            println!("  {}", old_value.strikethrough());
+        }
+        // Set the new value
+        match command {
             Some(command) => {
-                println!("{}: {}", alias, command);
+                println!("  {}", command);
+                self.items.insert(alias, command);
+            }
+            None => {
+                self.items.remove(&alias);
+            }
+        }
+        confy::store(STORAGE, self.items)?;
+        Ok(())
+    }
+
+    fn edit(self, alias: Alias) -> Result<()> {
+        //    // TODO: support alias editing:
+        //    // - Create a temp file and dump the alias content to it
+        //    // - Allow the user to modify it with $EDITOR
+        //    // - Save the result and remove the temp file
+        //fn edit(value: &str) -> Result<String> {
+        //}
+        todo!()
+    }
+
+    fn list(self) -> Result<()> {
+        for (alias, command) in self.items {
+            println!("{}: {}", alias.bright_white(), command);
+        }
+        Ok(())
+    }
+
+    fn run(self, alias: Alias) -> Result<()> {
+        match self.items.get(&alias) {
+            Some(command) => {
+                println!("{}: {}", alias.bright_white(), command);
                 let error = std::process::Command::new("sh")
                     .arg("-c")
                     .arg(command)
@@ -69,25 +123,7 @@ fn main() -> Result<()> {
                 println!("Error running command {:?}", error)
             }
             None => println!("Alias not found: {}", alias),
-        },
-        Action::Delete { alias } => {
-            match registry.remove(&alias) {
-                Some(alias) => println!("Deleted {}:\n{:?}", alias, alias),
-                None => println!("Alias not found: {}", alias),
-            }
-            confy::store("ag_registry", registry)?;
         }
-        Action::List => {
-            for (alias, command) in registry {
-                println!("{}: {}", alias, command);
-            }
-        }
-        Action::Completions { exe, shell } => clap_complete::generate(
-            shell,
-            &mut Args::command(),
-            exe,
-            &mut std::io::stdout().lock(),
-        ),
+        Ok(())
     }
-    Ok(())
 }
