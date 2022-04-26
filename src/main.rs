@@ -1,4 +1,4 @@
-use std::{collections::HashMap, os::unix::prelude::CommandExt};
+use std::{collections::HashMap, io::Write, os::unix::prelude::CommandExt, process};
 
 use anyhow::{Context, Result};
 
@@ -76,6 +76,17 @@ impl Registry {
     }
 
     fn set(mut self, alias: Alias, command: Option<Command>) -> Result<()> {
+        // trim command and make sure it's not empty
+        let command = command
+            .map(|x| {
+                let trimmed = x.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            })
+            .flatten();
         println!("{}:", alias.bright_white());
         // Delete old value
         if let Some(old_value) = self.items.get(&alias) {
@@ -95,14 +106,24 @@ impl Registry {
         Ok(())
     }
 
+    /// - Create a temp file and dump the alias content to it
+    /// - Allow the user to modify it with $EDITOR
+    /// - Save the result and remove the temp file
     fn edit(self, alias: Alias) -> Result<()> {
-        //    // TODO: support alias editing:
-        //    // - Create a temp file and dump the alias content to it
-        //    // - Allow the user to modify it with $EDITOR
-        //    // - Save the result and remove the temp file
-        //fn edit(value: &str) -> Result<String> {
-        //}
-        todo!()
+        let command = self
+            .items
+            .get(&alias)
+            .map(|x| x.to_string())
+            .unwrap_or_default();
+        let editor = std::env::var("EDITOR").context("EDITOR variable must be set")?;
+        let file = tempfile::NamedTempFile::new()?;
+        writeln!(file.as_file(), "{}", command)?;
+        process::Command::new(&editor)
+            .arg(file.path())
+            .status()
+            .context("running editor failed")?;
+        let new_command = std::fs::read_to_string(file.path())?;
+        self.set(alias, Some(new_command))
     }
 
     fn list(self) -> Result<()> {
@@ -116,10 +137,7 @@ impl Registry {
         match self.items.get(&alias) {
             Some(command) => {
                 println!("{}: {}", alias.bright_white(), command);
-                let error = std::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(command)
-                    .exec();
+                let error = process::Command::new("sh").arg("-c").arg(command).exec();
                 println!("Error running command {:?}", error)
             }
             None => println!("Alias not found: {}", alias),
