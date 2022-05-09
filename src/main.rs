@@ -27,6 +27,10 @@ enum Action {
     /// Save an alias
     Save { alias: Alias, command: Vec<String> },
 
+    /// Rename an alias
+    #[clap(alias("mv"))]
+    Rename { source: Alias, destination: Alias },
+
     /// List aliases
     #[clap(alias("ls"))]
     List,
@@ -47,6 +51,10 @@ fn main() -> Result<()> {
     let registry = Registry::load()?;
     match args.action {
         Action::Save { alias, command } => registry.set(alias, Some(command.join(" "))),
+        Action::Rename {
+            source,
+            destination,
+        } => registry.rename(source, destination),
         Action::Edit { alias } => registry.edit(alias),
         Action::Delete { alias } => registry.set(alias, None),
         Action::List => registry.list(),
@@ -124,6 +132,28 @@ impl Registry {
             .context("running editor failed")?;
         let new_command = std::fs::read_to_string(file.path())?;
         self.set(alias, Some(new_command))
+    }
+
+    fn rename(mut self, source: Alias, destination: Alias) -> Result<()> {
+        if !self.items.contains_key(&source) {
+            println!("{} doesn't exist", source.bright_white());
+            return Ok(());
+        }
+        if let Some(value) = self.items.get(&destination) {
+            println!("{} already exists with value", destination.bright_white());
+            println!("  {}", value);
+            return Ok(());
+        }
+        let cmd = self.items.remove(&source).unwrap();
+        println!(
+            "{} => {}",
+            source.strikethrough(),
+            destination.bright_white()
+        );
+        println!("    {}", cmd);
+        self.items.insert(destination, cmd);
+        confy::store(STORAGE, self.items)?;
+        Ok(())
     }
 
     fn list(self) -> Result<()> {
