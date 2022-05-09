@@ -79,3 +79,23 @@ hello = 'echo hello world'
 Deleted hello:
 "echo hello world"
 ```
+
+## Tips & tricks
+
+This program works great with bash history substitution. The most important
+thing to know is that `!!` gets replaced with the last typed command
+(See `man history` for more details)
+
+```
+# echo some long and complicated program
+some long and complicated program
+
+# ag save complicated !!
+ag save complicated echo some long and complicated program
+complicated:
+  echo some long and complicated program
+
+# ag run complicated
+complicated: echo some long and complicated program
+some long and complicated program
+```
