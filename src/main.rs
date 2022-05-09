@@ -157,7 +157,9 @@ impl Registry {
     }
 
     fn list(self) -> Result<()> {
-        for (alias, command) in self.items {
+        let mut aliases: Vec<_> = self.items.iter().collect();
+        aliases.sort();
+        for (alias, command) in aliases {
             println!("{}: {}", alias.bright_white(), command);
         }
         Ok(())
