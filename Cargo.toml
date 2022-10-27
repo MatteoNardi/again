@@ -7,9 +7,9 @@ description = "A commands alias manager"
 
 [dependencies]
 anyhow = "1.0.58"
-clap = { version = "3.2.6", features = ["derive"] }
-clap_complete = "3.2.2"
+clap = { version = "4.0.18", features = ["derive"] }
+clap_complete = "4.0.3"
 colored = "2.0.0"
-confy = "0.4.0"
+confy = "0.5.1"
 serde = { version = "1.0.137", features = ["derive"] }
 tempfile = "3.3.0"

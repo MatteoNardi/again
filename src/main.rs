@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 type Alias = String;
 type Command = String;
 
-use clap::{IntoApp, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use colored::Colorize;
 
 #[derive(Parser)]
@@ -58,7 +58,7 @@ enum Action {
         /// How you want to invoke again
         #[clap(long, default_value = "again")]
         exe: String,
-        #[clap(arg_enum)]
+        #[clap(value_enum)]
         shell: clap_complete::Shell,
     },
 }
@@ -105,8 +105,8 @@ const LOCALS: &'static str = "ag_locals";
 
 impl Registry {
     fn load() -> Result<Self> {
-        let items = confy::load(STORAGE).context("Error loading alias registry")?;
-        let locals = confy::load(LOCALS).context("Error loading locals registry")?;
+        let items = confy::load(STORAGE, STORAGE).context("Error loading alias registry")?;
+        let locals = confy::load(LOCALS, LOCALS).context("Error loading locals registry")?;
         Ok(Registry { items, locals })
     }
 
@@ -151,8 +151,8 @@ impl Registry {
             self.locals.insert(alias, new_dir);
         }
 
-        confy::store(STORAGE, self.items)?;
-        confy::store(LOCALS, self.locals)?;
+        confy::store(STORAGE, STORAGE, self.items)?;
+        confy::store(LOCALS, LOCALS, self.locals)?;
         Ok(())
     }
 
@@ -194,7 +194,7 @@ impl Registry {
         );
         println!("    {}", cmd);
         self.items.insert(destination, cmd);
-        confy::store(STORAGE, self.items)?;
+        confy::store(STORAGE, STORAGE, self.items)?;
         Ok(())
     }
 
